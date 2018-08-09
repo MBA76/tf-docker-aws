@@ -1,4 +1,8 @@
+# Ignore tfstate
+terraform.tfstate.backup
+terraform.tfstate
+.terraform
+
+# Ignore other files
 vars.tf
 deleted_code.tf
-terraform.tfstate
-terraform.tfstate.backup
