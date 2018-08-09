@@ -13,7 +13,7 @@ provider "aws" {
 }
 
 resource "aws_ecs_cluster" "ecs-jugnuu" {
-  name = "ecs-jugnuu-cluster"
+  name = "${var.ecs_cluster_name}"
 }
 
 # use default VPC
@@ -136,10 +136,8 @@ resource "aws_iam_role_policy_attachment" "ecs-service-policy-1" {
   policy_arn = "${var.aws_ec2_service_policy_arn}"
 }
 
+
 # Create auto-scaling group
-
-# User data
-
 data "aws_ami" "linux-ecs-optimized" {
   most_recent = true
 
@@ -182,3 +180,24 @@ resource "aws_autoscaling_group" "aws-auto-scaling-group" {
 }
 
 
+# Add ECS task and container definitions
+resource "aws_ecs_task_definition" "jugnuu-ecs-task" {
+  family                = "jugnuu-web-ecs-task"
+  container_definitions = "${file("task-definitions/service.json")}"
+}
+
+# Add ECS service
+resource "aws_ecs_service" "jugnuu-ecs-service" {
+  name            = "jugnuu-ecs-service"
+  cluster         = "${aws_ecs_cluster.ecs-jugnuu.id}"
+  task_definition = "${aws_ecs_task_definition.jugnuu-ecs-task.arn}"
+  desired_count   = 1
+  iam_role        = "${aws_iam_role.ecs-service-role.arn}"
+  depends_on      = ["aws_iam_role.ecs-service-role"]
+
+  load_balancer {
+    elb_name = "${aws_elb.ecs-jugnuu-load-balancer.name}"
+    container_name   = "jugnuu-web"
+    container_port   = 3000
+  }
+}
