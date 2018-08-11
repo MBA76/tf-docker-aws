@@ -40,6 +40,20 @@ resource "aws_security_group" "ecs-jugnuu-security-group" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port = "80"
+    to_port = "80"
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port = "0"
+    to_port = "0"
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags {
     Name = "ecs-jugnuu-security-group"
   }
@@ -69,6 +83,10 @@ resource "aws_elb" "ecs-jugnuu-load-balancer" {
     interval            = 30
   }
 
+  idle_timeout                = 300
+  connection_draining         = true
+  connection_draining_timeout = 300
+
   tags {
     Name = "ecs-jugnuu-load-balancer"
   }
@@ -78,21 +96,7 @@ resource "aws_elb" "ecs-jugnuu-load-balancer" {
 resource "aws_iam_role" "ecs-instance-role" {
   name = "ecs_instance_role"
   description = "Allows EC2 instances to communicate with ECS and read from S3"
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
-}
-EOF
+  assume_role_policy = "${file("role_policies/policy.json")}"
 }
 
 resource "aws_iam_instance_profile" "ec2-instance-profile" {
@@ -114,28 +118,24 @@ resource "aws_iam_role_policy_attachment" "ecs-instance-policy-2" {
 resource "aws_iam_role" "ecs-service-role" {
   name = "ecs_service_role"
   description = "Allows ECS cluster to communicate with ELB"
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
+  assume_role_policy  = "${data.aws_iam_policy_document.ecs-service-policy.json}"
 }
-EOF
+
+data "aws_iam_policy_document" "ecs-service-policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs.amazonaws.com"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs-service-policy-1" {
   role       = "${aws_iam_role.ecs-service-role.name}"
   policy_arn = "${var.aws_ec2_service_policy_arn}"
 }
-
 
 # Create auto-scaling group
 data "aws_ami" "linux-ecs-optimized" {
@@ -160,11 +160,7 @@ resource "aws_launch_configuration" "aws-launch-config" {
   lifecycle {
     create_before_destroy = true
   }
-  user_data = <<EOF
-#!/bin/bash
-yum install -y aws-cli
-aws s3 cp s3://jugnuu-ecs-config/ecs.config /etc/ecs/ecs.config
-EOF
+  user_data = "${file("user_data/launch_config_user_data.sh")}"
 }
 
 resource "aws_autoscaling_group" "aws-auto-scaling-group" {
@@ -179,11 +175,10 @@ resource "aws_autoscaling_group" "aws-auto-scaling-group" {
   }
 }
 
-
 # Add ECS task and container definitions
 resource "aws_ecs_task_definition" "jugnuu-ecs-task" {
   family                = "jugnuu-web-ecs-task"
-  container_definitions = "${file("task-definitions/service.json")}"
+  container_definitions = "${file("task_definitions/service.json")}"
 }
 
 # Add ECS service

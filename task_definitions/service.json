@@ -2,7 +2,7 @@
   {
     "name": "jugnuu-web",
     "image": "jugnuu/web:first",
-    "cpu": 0,
+    "cpu": 10,
     "memory": 128,
     "essential": true,
     "portMappings": [
