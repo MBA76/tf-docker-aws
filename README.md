@@ -47,7 +47,9 @@ The profile name will be required when running terraform commands, and is refere
 5. Modify the contents of `user_data/launch_config_user_data.sh` inside this repository using the following instructions:
 
   a. If you're using a private docker image as mentioned in step 4, replace the contents of user_data/launch_config_user_data.sh with the contents below. Don't forget to add the value for your ECS cluster name under `ECS_CLUSTER=<insert ECS cluster name here>`. It should be the same as the value specified inside vars.tf under `ecs_cluster_name`.
+
     ```
+
       #!/bin/bash
       sudo yum install -y aws-cli
 
@@ -57,6 +59,7 @@ The profile name will be required when running terraform commands, and is refere
     ```
   b. If you're using a public docker image, and you skipped step 4, replace the contents with the following:
     ```
+
       #!/bin/bash
 
       echo ECS_CLUSTER=<insert ECS cluster name here> >> /etc/ecs/ecs.config
