@@ -157,6 +157,21 @@ resource "aws_launch_configuration" "aws-launch-config" {
   key_name = "${var.key_name}"
   iam_instance_profile = "${aws_iam_instance_profile.ec2-instance-profile.name}"
 
+  # Add Storage
+  root_block_device {
+    volume_type                 = "gp2"
+    volume_size                 = 8
+    iops                        = 100
+    delete_on_termination       = "true"
+  }
+
+  ebs_block_device {
+    device_name                 = "/dev/xvdcz"
+    volume_type                 = "gp2"
+    volume_size                 = 22
+    iops                        = 100
+  }
+
   lifecycle {
     create_before_destroy = true
   }
@@ -179,6 +194,7 @@ resource "aws_autoscaling_group" "aws-auto-scaling-group" {
 resource "aws_ecs_task_definition" "jugnuu-ecs-task" {
   family                = "jugnuu-web-ecs-task"
   container_definitions = "${file("task_definitions/service.json")}"
+  requires_compatibilities = ["EC2"]
 }
 
 # Add ECS service
