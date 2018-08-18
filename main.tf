@@ -182,8 +182,8 @@ resource "aws_autoscaling_group" "aws-auto-scaling-group" {
   name                 = "${var.application_name}-asg"
   launch_configuration = "${aws_launch_configuration.aws-launch-config.name}"
   vpc_zone_identifier  = ["${data.aws_subnet_ids.default-subnet-ids.ids}"]
-  min_size             = 2
-  max_size             = 2
+  min_size             = "${var.asg_configuration["min_instances"]}"
+  max_size             = "${var.asg_configuration["max_instances"]}"
 
   lifecycle {
     create_before_destroy = true
@@ -202,7 +202,7 @@ resource "aws_ecs_service" "ecs-service" {
   name            = "${var.application_name}-ecs-service"
   cluster         = "${aws_ecs_cluster.ecs-cluster.id}"
   task_definition = "${aws_ecs_task_definition.ecs-task.arn}"
-  desired_count   = 1
+  desired_count   = "${var.ecs_configuration["number_tasks"]}"
   iam_role        = "${aws_iam_role.ecs-service-role.arn}"
   depends_on      = ["aws_iam_role.ecs-service-role"]
 
@@ -211,4 +211,8 @@ resource "aws_ecs_service" "ecs-service" {
     container_name   = "${var.application_name}"
     container_port   = 3000
   }
+}
+
+output "elb_name" {
+  value = "${aws_elb.ecs-load-balancer.name}"
 }

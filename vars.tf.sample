@@ -33,3 +33,20 @@ variable "ecs_cluster_name" {
 variable "application_name" {
   description = "Name of the application"
 }
+
+variable "asg_configuration" {
+  type = "map"
+  description = "ASG Settings"
+  default = {
+    min_instances = "2"
+    max_instances = "2"
+  }
+}
+
+variable "ecs_configuration" {
+  type = "map"
+  description = "ECS Settings"
+  default = {
+    number_tasks = "1"
+  }
+}
