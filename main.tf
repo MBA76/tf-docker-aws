@@ -12,7 +12,7 @@ provider "aws" {
   profile = "${var.aws_profile}"
 }
 
-resource "aws_ecs_cluster" "ecs-jugnuu" {
+resource "aws_ecs_cluster" "ecs-cluster" {
   name = "${var.ecs_cluster_name}"
 }
 
@@ -28,8 +28,8 @@ data "aws_subnet_ids" "default-subnet-ids" {
 }
 
 # Security group configuration
-resource "aws_security_group" "ecs-jugnuu-security-group" {
-  name = "ecs-jugnuu-security-group"
+resource "aws_security_group" "ecs-security-group" {
+  name = "ecs-${var.application_name}-security-group"
   description = "Security group for deploying instances"
   vpc_id = "${aws_default_vpc.default.id}"
 
@@ -55,7 +55,7 @@ resource "aws_security_group" "ecs-jugnuu-security-group" {
   }
 
   tags {
-    Name = "ecs-jugnuu-security-group"
+    Name = "ecs-${var.application_name}-security-group"
   }
 }
 
@@ -63,10 +63,10 @@ resource "aws_security_group" "ecs-jugnuu-security-group" {
 data "aws_availability_zones" "available" {}
 
 # Load balancer config
-resource "aws_elb" "ecs-jugnuu-load-balancer" {
-  name               = "ecs-jugnuu-load-balancer"
+resource "aws_elb" "ecs-load-balancer" {
+  name               = "ecs-${var.application_name}-load-balancer"
   availability_zones = ["${data.aws_availability_zones.available.names}"]
-  security_groups = ["${aws_security_group.ecs-jugnuu-security-group.id}"]
+  security_groups = ["${aws_security_group.ecs-security-group.id}"]
 
   listener {
     instance_port     = 80
@@ -88,7 +88,7 @@ resource "aws_elb" "ecs-jugnuu-load-balancer" {
   connection_draining_timeout = 300
 
   tags {
-    Name = "ecs-jugnuu-load-balancer"
+    Name = "ecs-${var.application_name}-load-balancer"
   }
 }
 
@@ -150,10 +150,10 @@ data "aws_ami" "linux-ecs-optimized" {
 }
 
 resource "aws_launch_configuration" "aws-launch-config" {
-  name_prefix   = "jugnuu_launch_config"
+  name_prefix   = "${var.application_name}_launch_config"
   image_id      = "${data.aws_ami.linux-ecs-optimized.id}"
   instance_type = "t2.micro"
-  security_groups = ["${aws_security_group.ecs-jugnuu-security-group.id}"]
+  security_groups = ["${aws_security_group.ecs-security-group.id}"]
   key_name = "${var.key_name}"
   iam_instance_profile = "${aws_iam_instance_profile.ec2-instance-profile.name}"
 
@@ -179,7 +179,7 @@ resource "aws_launch_configuration" "aws-launch-config" {
 }
 
 resource "aws_autoscaling_group" "aws-auto-scaling-group" {
-  name                 = "jugnuu-asg"
+  name                 = "${var.application_name}-asg"
   launch_configuration = "${aws_launch_configuration.aws-launch-config.name}"
   vpc_zone_identifier  = ["${data.aws_subnet_ids.default-subnet-ids.ids}"]
   min_size             = 2
@@ -191,24 +191,24 @@ resource "aws_autoscaling_group" "aws-auto-scaling-group" {
 }
 
 # Add ECS task and container definitions
-resource "aws_ecs_task_definition" "jugnuu-ecs-task" {
-  family                = "jugnuu-web-ecs-task"
+resource "aws_ecs_task_definition" "ecs-task" {
+  family                = "${var.application_name}-ecs-task"
   container_definitions = "${file("task_definitions/service.json")}"
   requires_compatibilities = ["EC2"]
 }
 
 # Add ECS service
-resource "aws_ecs_service" "jugnuu-ecs-service" {
-  name            = "jugnuu-ecs-service"
-  cluster         = "${aws_ecs_cluster.ecs-jugnuu.id}"
-  task_definition = "${aws_ecs_task_definition.jugnuu-ecs-task.arn}"
+resource "aws_ecs_service" "ecs-service" {
+  name            = "${var.application_name}-ecs-service"
+  cluster         = "${aws_ecs_cluster.ecs-cluster.id}"
+  task_definition = "${aws_ecs_task_definition.ecs-task.arn}"
   desired_count   = 1
   iam_role        = "${aws_iam_role.ecs-service-role.arn}"
   depends_on      = ["aws_iam_role.ecs-service-role"]
 
   load_balancer {
-    elb_name = "${aws_elb.ecs-jugnuu-load-balancer.name}"
-    container_name   = "jugnuu-web"
+    elb_name = "${aws_elb.ecs-load-balancer.name}"
+    container_name   = "${var.application_name}"
     container_port   = 3000
   }
 }
