@@ -6,3 +6,4 @@ terraform.tfstate
 # Ignore other files
 vars.tf
 deleted_code.tf
+.idea
